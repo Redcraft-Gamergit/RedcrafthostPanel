@@ -40,6 +40,27 @@ Optional:
 curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/install-gamehostpanel-pi.sh | bash -s -- --repo https://github.com/<owner>/<repo>.git --port 8080
 ```
 
+## Raspberry Pi Daily Backups (Desktop, max 2)
+
+Ziel: TÃ¤glich 1 Backup auf den Desktop, maximal 2 Backups behalten.
+
+```bash
+cd ~/GameHostPanel
+chmod +x ./scripts/pi-daily-backup.sh ./scripts/install-pi-backup-cron.sh
+./scripts/install-pi-backup-cron.sh
+```
+
+Das Backup landet hier:
+
+`~/Desktop/GameHostPanelBackups`
+
+Manueller Test:
+
+```bash
+~/GameHostPanel/scripts/pi-daily-backup.sh
+ls -lah ~/Desktop/GameHostPanelBackups
+```
+
 ## Produktion/Autostart
 
 ```powershell
