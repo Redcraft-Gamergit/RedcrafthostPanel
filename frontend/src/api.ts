@@ -127,6 +127,10 @@ export class ApiClient {
     return this.request<void>(`/api/servers/${id}/files/mkdir`, { method: "POST", body: { path } });
   }
 
+  movePath(id: string, sourcePath: string, targetPath: string) {
+    return this.request<void>(`/api/servers/${id}/files/move`, { method: "POST", body: { sourcePath, targetPath } });
+  }
+
   deletePath(id: string, path: string) {
     return this.request<void>(`/api/servers/${id}/files?path=${encodeURIComponent(path)}`, { method: "DELETE" });
   }

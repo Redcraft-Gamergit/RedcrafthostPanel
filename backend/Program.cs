@@ -576,6 +576,18 @@ app.MapPost("/api/servers/{id:guid}/files/mkdir", async (Guid id, FilePathReques
     return Results.NoContent();
 }).RequireAuthorization();
 
+app.MapPost("/api/servers/{id:guid}/files/move", async (Guid id, FileMoveRequest request, PanelDbContext db, FileManagerService files, CancellationToken ct) =>
+{
+    var server = await FindServerAsync(db, id, ct);
+    if (server is null)
+    {
+        return Results.NotFound();
+    }
+
+    files.MovePath(server, request.SourcePath, request.TargetPath);
+    return Results.NoContent();
+}).RequireAuthorization();
+
 app.MapDelete("/api/servers/{id:guid}/files", async (Guid id, string path, PanelDbContext db, FileManagerService files, CancellationToken ct) =>
 {
     var server = await FindServerAsync(db, id, ct);
@@ -1415,6 +1427,44 @@ public sealed class FileManagerService(PanelPaths paths)
         }
     }
 
+    public void MovePath(GameServer server, string sourceRelativePath, string targetRelativePath)
+    {
+        var root = ResolveRoot(server);
+        var source = ResolvePath(root, sourceRelativePath);
+        var target = ResolvePath(root, targetRelativePath);
+
+        if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (Directory.Exists(source))
+        {
+            if (File.Exists(target) || Directory.Exists(target))
+            {
+                throw new InvalidOperationException("Zielpfad existiert bereits.");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            Directory.Move(source, target);
+            return;
+        }
+
+        if (File.Exists(source))
+        {
+            if (File.Exists(target) || Directory.Exists(target))
+            {
+                throw new InvalidOperationException("Zielpfad existiert bereits.");
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Move(source, target);
+            return;
+        }
+
+        throw new FileNotFoundException("Quelle nicht gefunden.", sourceRelativePath);
+    }
+
     public void DeleteServerRoot(GameServer server)
     {
         var root = ResolveRoot(server);
@@ -1781,6 +1831,7 @@ public sealed record FileEntryDto(string Name, string Path, bool IsDirectory, lo
 public sealed record FileContentDto(string Path, string Content, DateTime ModifiedAt);
 public sealed record FileWriteRequest(string Content);
 public sealed record FilePathRequest(string Path);
+public sealed record FileMoveRequest(string SourcePath, string TargetPath);
 public sealed record ImagePullRequest(string Image);
 public sealed record CreateUserRequest(string Username, string Password, string Role);
 public sealed record CreateApiKeyRequest(string Name, DateTimeOffset? ExpiresAt);

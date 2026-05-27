@@ -15,6 +15,7 @@ import {
   Play,
   PlugZap,
   Plus,
+  Pencil,
   RefreshCw,
   Save,
   Server as ServerIcon,
@@ -628,6 +629,48 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
     setDirty(false);
   }
 
+  async function deleteEntry(entry: FileEntry) {
+    if (!window.confirm(`Wirklich löschen: ${entry.path}?`)) {
+      return;
+    }
+
+    await api.deletePath(server.id, entry.path);
+    if (selected === entry.path) {
+      setSelected("");
+      setContent("");
+      setDirty(false);
+    }
+    await load(path);
+  }
+
+  async function renameEntry(entry: FileEntry) {
+    const nextName = window.prompt("Neuer Name", entry.name);
+    if (!nextName || nextName.trim() === "" || nextName === entry.name) {
+      return;
+    }
+
+    const base = entry.path.split("/").slice(0, -1).join("/");
+    const targetPath = base ? `${base}/${nextName.trim()}` : nextName.trim();
+    await api.movePath(server.id, entry.path, targetPath);
+    if (selected === entry.path) {
+      setSelected(targetPath);
+    }
+    await load(path);
+  }
+
+  async function moveEntry(entry: FileEntry) {
+    const targetPath = window.prompt("Zielpfad (inkl. neuem Namen)", entry.path);
+    if (!targetPath || targetPath.trim() === "" || targetPath === entry.path) {
+      return;
+    }
+
+    await api.movePath(server.id, entry.path, targetPath.trim());
+    if (selected === entry.path) {
+      setSelected(targetPath.trim());
+    }
+    await load(path);
+  }
+
   const parent = path.split("/").filter(Boolean).slice(0, -1).join("/");
 
   return (
@@ -642,11 +685,18 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
         </div>
         <div className="max-h-[520px] overflow-auto p-2">
           {entries.map((entry) => (
-            <button key={entry.path} className={clsx("flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-slate-50", selected === entry.path && "bg-emerald-50 text-emerald-800")} onClick={() => openFile(entry)}>
-              {entry.isDirectory ? <Folder size={16} className="text-amber-500" /> : <FileCode2 size={16} className="text-slate-500" />}
-              <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-              {!entry.isDirectory && <span className="text-xs text-slate-400">{formatBytes(entry.size)}</span>}
-            </button>
+            <div key={entry.path} className={clsx("flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-slate-50", selected === entry.path && "bg-emerald-50 text-emerald-800")}>
+              <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => openFile(entry)}>
+                {entry.isDirectory ? <Folder size={16} className="text-amber-500" /> : <FileCode2 size={16} className="text-slate-500" />}
+                <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                {!entry.isDirectory && <span className="text-xs text-slate-400">{formatBytes(entry.size)}</span>}
+              </button>
+              <div className="flex gap-1">
+                <IconButton title="Umbenennen" onClick={() => renameEntry(entry)}><Pencil size={14} /></IconButton>
+                <IconButton title="Verschieben" onClick={() => moveEntry(entry)}><ChevronRight size={14} /></IconButton>
+                <IconButton title="Löschen" onClick={() => deleteEntry(entry)} className="text-red-700"><Trash2 size={14} /></IconButton>
+              </div>
+            </div>
           ))}
         </div>
         <div className="border-t border-slate-200 p-3">
