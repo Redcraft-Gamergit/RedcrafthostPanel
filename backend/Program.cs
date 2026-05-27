@@ -230,7 +230,9 @@ app.MapGet("/api/dashboard", async (PanelDbContext db, DockerEngine docker, Canc
 
 app.MapGet("/api/servers", async (PanelDbContext db, CancellationToken ct) =>
 {
-    var servers = await QueryServers(db).OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
+    var servers = (await QueryServers(db).ToListAsync(ct))
+        .OrderByDescending(x => x.CreatedAt)
+        .ToList();
     return Results.Ok(servers.Select(x => ServerDto.FromEntity(x)));
 }).RequireAuthorization();
 
@@ -663,9 +665,11 @@ app.MapGet("/api/api-keys", async (PanelDbContext db, ClaimsPrincipal principal,
         query = query.Where(x => x.UserId == userId);
     }
 
-    var keys = await query.OrderByDescending(x => x.CreatedAt)
-        .Select(x => new ApiKeySummary(x.Id, x.Name, x.Prefix, x.CreatedAt, x.LastUsedAt, x.ExpiresAt))
-        .ToListAsync(ct);
+    var keys = (await query
+            .Select(x => new ApiKeySummary(x.Id, x.Name, x.Prefix, x.CreatedAt, x.LastUsedAt, x.ExpiresAt))
+            .ToListAsync(ct))
+        .OrderByDescending(x => x.CreatedAt)
+        .ToList();
     return Results.Ok(keys);
 }).RequireAuthorization();
 
