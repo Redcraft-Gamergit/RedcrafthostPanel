@@ -642,7 +642,7 @@ function ConsolePanel({ api, server }: { api: ApiClient; server: Server }) {
           className={clsx(inputClass, "font-mono text-sm")}
           value={command}
           onChange={(event) => setCommand(event.target.value)}
-          placeholder="Befehl eingeben, z.B. ls -la /data"
+          placeholder="Minecraft-Befehl, z.B. /op Brisko7222"
         />
         <Button type="submit" disabled={sending || !command.trim()}>
           <Send size={15} />

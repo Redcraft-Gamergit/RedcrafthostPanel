@@ -1284,13 +1284,16 @@ public sealed class DockerEngine
             throw new InvalidOperationException("Container ist noch nicht erstellt.");
         }
 
+        var normalizedCommand = NormalizeConsoleCommand(command);
+        var execCommand = BuildConsoleExecCommand(server, normalizedCommand);
+
         var exec = await _client.Exec.ExecCreateContainerAsync(server.DockerContainerId, new ContainerExecCreateParameters
         {
             AttachStdout = true,
             AttachStderr = true,
             AttachStdin = false,
             Tty = false,
-            Cmd = new[] { "/bin/sh", "-lc", command.Trim() }
+            Cmd = execCommand
         }, ct);
 
         using var stream = await _client.Exec.StartAndAttachContainerExecAsync(exec.ID, false, ct);
@@ -1310,7 +1313,39 @@ public sealed class DockerEngine
             }
         }
 
-        return Encoding.UTF8.GetString(stdout.ToArray());
+        var output = Encoding.UTF8.GetString(stdout.ToArray());
+        if (string.IsNullOrWhiteSpace(output) && IsMinecraftServerImage(server))
+        {
+            return $"Minecraft-Befehl gesendet: {normalizedCommand}\n";
+        }
+
+        return output;
+    }
+
+    private static IList<string> BuildConsoleExecCommand(GameServer server, string normalizedCommand)
+    {
+        if (IsMinecraftServerImage(server))
+        {
+            return new[] { "/bin/sh", "-lc", $"mc-send-to-console {ShellEscape(normalizedCommand)}" };
+        }
+
+        return new[] { "/bin/sh", "-lc", normalizedCommand };
+    }
+
+    private static bool IsMinecraftServerImage(GameServer server)
+    {
+        return server.Image.Contains("itzg/minecraft-server", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeConsoleCommand(string command)
+    {
+        var trimmed = command.Trim();
+        return trimmed.StartsWith('/') ? trimmed[1..] : trimmed;
+    }
+
+    private static string ShellEscape(string value)
+    {
+        return $"'{value.Replace("'", "'\"'\"'")}'";
     }
 
     private static CreateContainerParameters BuildCreateParameters(GameServer server)
