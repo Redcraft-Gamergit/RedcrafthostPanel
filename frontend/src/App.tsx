@@ -505,6 +505,30 @@ function ServerDetailView({ api, id, setView }: { api: ApiClient; id: string; se
     }
   }
 
+  async function deleteServer() {
+    if (!server) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Server '${server.name}' wirklich löschen?`);
+    if (!confirmed) {
+      return;
+    }
+
+    const deleteFiles = window.confirm("Sollen auch die Server-Dateien gelöscht werden?\nOK = Ja, Dateien löschen\nAbbrechen = Nein, nur aus Panel entfernen");
+
+    setBusy(true);
+    setError("");
+    try {
+      await api.deleteServer(server.id, deleteFiles);
+      setView({ page: "servers" });
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!server) {
     return error ? <ErrorBox message={error} /> : <SplashPanel />;
   }
@@ -521,7 +545,13 @@ function ServerDetailView({ api, id, setView }: { api: ApiClient; id: string; se
           </div>
           <div className="mt-1 text-sm text-slate-500">{server.image}</div>
         </div>
-        <ServerActionBar disabled={busy} onStart={() => run("start")} onStop={() => run("stop")} onRestart={() => run("restart")} onOpen={() => setTab("console")} />
+        <div className="flex items-center gap-2">
+          <ServerActionBar disabled={busy} onStart={() => run("start")} onStop={() => run("stop")} onRestart={() => run("restart")} onOpen={() => setTab("console")} />
+          <Button variant="soft" className="text-red-700" disabled={busy} onClick={deleteServer}>
+            <Trash2 size={16} />
+            Server löschen
+          </Button>
+        </div>
       </div>
 
       {error && <ErrorBox message={error} />}

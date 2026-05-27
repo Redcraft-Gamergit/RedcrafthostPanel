@@ -67,7 +67,15 @@ if [[ -n "$REPO_URL" ]]; then
     echo "Git repo already exists at $TARGET_DIR, pulling latest changes..."
     git -C "$TARGET_DIR" pull --ff-only
   else
-    rm -rf "$TARGET_DIR"
+    if [[ -d "$TARGET_DIR" ]] && [[ -n "$(ls -A "$TARGET_DIR" 2>/dev/null || true)" ]]; then
+      echo "Directory '$TARGET_DIR' already exists and is not a git repo."
+      echo "For safety, installer will NOT delete it automatically."
+      echo "Please either:"
+      echo "  1) move/rename that folder, or"
+      echo "  2) run with a new --dir path."
+      exit 1
+    fi
+    mkdir -p "$TARGET_DIR"
     git clone "$REPO_URL" "$TARGET_DIR"
   fi
 else
