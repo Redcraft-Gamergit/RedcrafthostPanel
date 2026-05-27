@@ -127,12 +127,25 @@ export class ApiClient {
     return this.request<void>(`/api/servers/${id}/files/mkdir`, { method: "POST", body: { path } });
   }
 
+  createFile(id: string, path: string) {
+    return this.request<void>(`/api/servers/${id}/files/touch`, { method: "POST", body: { path } });
+  }
+
   movePath(id: string, sourcePath: string, targetPath: string) {
     return this.request<void>(`/api/servers/${id}/files/move`, { method: "POST", body: { sourcePath, targetPath } });
   }
 
   deletePath(id: string, path: string) {
     return this.request<void>(`/api/servers/${id}/files?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+  }
+
+  async downloadFile(id: string, path: string) {
+    const response = await this.fetchRaw(`/api/servers/${id}/files/download?path=${encodeURIComponent(path)}`);
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get("Content-Disposition") ?? "";
+    const nameMatch = /filename\*=UTF-8''([^;]+)|filename=\"?([^\";]+)\"?/i.exec(contentDisposition);
+    const fileName = decodeURIComponent(nameMatch?.[1] ?? nameMatch?.[2] ?? path.split("/").pop() ?? "download.bin");
+    return { blob, fileName };
   }
 
   dockerStatus() {
@@ -180,6 +193,15 @@ export class ApiClient {
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+    const response = await this.fetchRaw(path, options);
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return (await response.json()) as T;
+  }
+
+  private async fetchRaw(path: string, options: RequestOptions = {}) {
     const headers = new Headers(options.headers);
     if (options.auth !== false && this.token) {
       headers.set("Authorization", `Bearer ${this.token}`);
@@ -210,11 +232,7 @@ export class ApiClient {
       throw new ApiError(message, response.status);
     }
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    return (await response.json()) as T;
+    return response;
   }
 }
 

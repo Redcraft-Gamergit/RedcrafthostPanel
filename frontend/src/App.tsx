@@ -4,8 +4,11 @@ import {
   ChevronRight,
   Cpu,
   Database,
+  Download,
   FileCode2,
+  FilePlus2,
   Folder,
+  FolderPlus,
   Gauge,
   HardDrive,
   KeyRound,
@@ -625,8 +628,12 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
     if (!selected) {
       return;
     }
-    await api.writeFile(server.id, selected, content);
-    setDirty(false);
+    try {
+      await api.writeFile(server.id, selected, content);
+      setDirty(false);
+    } catch (err) {
+      setError(messageOf(err));
+    }
   }
 
   async function deleteEntry(entry: FileEntry) {
@@ -634,13 +641,17 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
       return;
     }
 
-    await api.deletePath(server.id, entry.path);
-    if (selected === entry.path) {
-      setSelected("");
-      setContent("");
-      setDirty(false);
+    try {
+      await api.deletePath(server.id, entry.path);
+      if (selected === entry.path) {
+        setSelected("");
+        setContent("");
+        setDirty(false);
+      }
+      await load(path);
+    } catch (err) {
+      setError(messageOf(err));
     }
-    await load(path);
   }
 
   async function renameEntry(entry: FileEntry) {
@@ -651,11 +662,15 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
 
     const base = entry.path.split("/").slice(0, -1).join("/");
     const targetPath = base ? `${base}/${nextName.trim()}` : nextName.trim();
-    await api.movePath(server.id, entry.path, targetPath);
-    if (selected === entry.path) {
-      setSelected(targetPath);
+    try {
+      await api.movePath(server.id, entry.path, targetPath);
+      if (selected === entry.path) {
+        setSelected(targetPath);
+      }
+      await load(path);
+    } catch (err) {
+      setError(messageOf(err));
     }
-    await load(path);
   }
 
   async function moveEntry(entry: FileEntry) {
@@ -664,11 +679,65 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
       return;
     }
 
-    await api.movePath(server.id, entry.path, targetPath.trim());
-    if (selected === entry.path) {
-      setSelected(targetPath.trim());
+    try {
+      await api.movePath(server.id, entry.path, targetPath.trim());
+      if (selected === entry.path) {
+        setSelected(targetPath.trim());
+      }
+      await load(path);
+    } catch (err) {
+      setError(messageOf(err));
     }
-    await load(path);
+  }
+
+  async function createDirectory() {
+    const name = window.prompt("Ordnername");
+    if (!name || !name.trim()) {
+      return;
+    }
+
+    const targetPath = path ? `${path}/${name.trim()}` : name.trim();
+    try {
+      await api.makeDirectory(server.id, targetPath);
+      await load(path);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  async function createFile() {
+    const name = window.prompt("Dateiname (z.B. server.properties)");
+    if (!name || !name.trim()) {
+      return;
+    }
+
+    const targetPath = path ? `${path}/${name.trim()}` : name.trim();
+    try {
+      await api.createFile(server.id, targetPath);
+      await load(path);
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  }
+
+  async function downloadEntry(entry: FileEntry) {
+    if (entry.isDirectory) {
+      return;
+    }
+
+    try {
+      const { blob, fileName } = await api.downloadFile(server.id, entry.path);
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      setError(messageOf(err));
+    }
   }
 
   const parent = path.split("/").filter(Boolean).slice(0, -1).join("/");
@@ -680,6 +749,8 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
           <div className="truncate text-sm font-semibold text-slate-900">/{path}</div>
           <div className="flex gap-1">
             {path && <IconButton title="Zurück" onClick={() => load(parent)}><ChevronRight className="rotate-180" size={16} /></IconButton>}
+            <IconButton title="Neuer Ordner" onClick={createDirectory}><FolderPlus size={16} /></IconButton>
+            <IconButton title="Neue Datei" onClick={createFile}><FilePlus2 size={16} /></IconButton>
             <IconButton title="Aktualisieren" onClick={() => load()}><RefreshCw size={16} /></IconButton>
           </div>
         </div>
@@ -692,6 +763,7 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
                 {!entry.isDirectory && <span className="text-xs text-slate-400">{formatBytes(entry.size)}</span>}
               </button>
               <div className="flex gap-1">
+                {!entry.isDirectory && <IconButton title="Download" onClick={() => downloadEntry(entry)}><Download size={14} /></IconButton>}
                 <IconButton title="Umbenennen" onClick={() => renameEntry(entry)}><Pencil size={14} /></IconButton>
                 <IconButton title="Verschieben" onClick={() => moveEntry(entry)}><ChevronRight size={14} /></IconButton>
                 <IconButton title="Löschen" onClick={() => deleteEntry(entry)} className="text-red-700"><Trash2 size={14} /></IconButton>
@@ -708,8 +780,12 @@ function FilesPanel({ api, server }: { api: ApiClient; server: Server }) {
               onChange={async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                await api.uploadFile(server.id, path, file);
-                load();
+                try {
+                  await api.uploadFile(server.id, path, file);
+                  await load(path);
+                } catch (err) {
+                  setError(messageOf(err));
+                }
                 event.target.value = "";
               }}
             />

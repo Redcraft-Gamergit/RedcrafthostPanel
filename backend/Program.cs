@@ -578,6 +578,18 @@ app.MapPost("/api/servers/{id:guid}/files/mkdir", async (Guid id, FilePathReques
     return Results.NoContent();
 }).RequireAuthorization();
 
+app.MapPost("/api/servers/{id:guid}/files/touch", async (Guid id, FilePathRequest request, PanelDbContext db, FileManagerService files, CancellationToken ct) =>
+{
+    var server = await FindServerAsync(db, id, ct);
+    if (server is null)
+    {
+        return Results.NotFound();
+    }
+
+    await files.CreateFileAsync(server, request.Path, ct);
+    return Results.NoContent();
+}).RequireAuthorization();
+
 app.MapPost("/api/servers/{id:guid}/files/move", async (Guid id, FileMoveRequest request, PanelDbContext db, FileManagerService files, CancellationToken ct) =>
 {
     var server = await FindServerAsync(db, id, ct);
@@ -1379,9 +1391,20 @@ public sealed class FileManagerService(PanelPaths paths)
 
     public async Task WriteTextAsync(GameServer server, string relativePath, string content, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new InvalidOperationException("Dateipfad fehlt.");
+        }
+
         var root = ResolveRoot(server);
         var target = ResolvePath(root, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        var directory = Path.GetDirectoryName(target);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("Ungültiger Dateipfad.");
+        }
+
+        Directory.CreateDirectory(directory);
         await File.WriteAllTextAsync(target, content, Encoding.UTF8, ct);
     }
 
@@ -1397,6 +1420,11 @@ public sealed class FileManagerService(PanelPaths paths)
 
     public string ResolveFile(GameServer server, string relativePath)
     {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new InvalidOperationException("Dateipfad fehlt.");
+        }
+
         var root = ResolveRoot(server);
         var target = ResolvePath(root, relativePath);
         if (!File.Exists(target))
@@ -1409,12 +1437,49 @@ public sealed class FileManagerService(PanelPaths paths)
 
     public void CreateDirectory(GameServer server, string relativePath)
     {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new InvalidOperationException("Ordnerpfad fehlt.");
+        }
+
         var root = ResolveRoot(server);
         Directory.CreateDirectory(ResolvePath(root, relativePath));
     }
 
+    public async Task CreateFileAsync(GameServer server, string relativePath, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new InvalidOperationException("Dateipfad fehlt.");
+        }
+
+        var root = ResolveRoot(server);
+        var target = ResolvePath(root, relativePath);
+        if (Directory.Exists(target))
+        {
+            throw new InvalidOperationException("Am Ziel existiert bereits ein Ordner.");
+        }
+
+        var directory = Path.GetDirectoryName(target);
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            throw new InvalidOperationException("Ungültiger Dateipfad.");
+        }
+
+        Directory.CreateDirectory(directory);
+        if (!File.Exists(target))
+        {
+            await File.WriteAllTextAsync(target, string.Empty, Encoding.UTF8, ct);
+        }
+    }
+
     public void DeletePath(GameServer server, string relativePath)
     {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new InvalidOperationException("Root-Ordner kann nicht gelöscht werden.");
+        }
+
         var root = ResolveRoot(server);
         var target = ResolvePath(root, relativePath);
         if (Directory.Exists(target))
@@ -1431,6 +1496,11 @@ public sealed class FileManagerService(PanelPaths paths)
 
     public void MovePath(GameServer server, string sourceRelativePath, string targetRelativePath)
     {
+        if (string.IsNullOrWhiteSpace(sourceRelativePath) || string.IsNullOrWhiteSpace(targetRelativePath))
+        {
+            throw new InvalidOperationException("Quell- und Zielpfad sind erforderlich.");
+        }
+
         var root = ResolveRoot(server);
         var source = ResolvePath(root, sourceRelativePath);
         var target = ResolvePath(root, targetRelativePath);
@@ -1589,7 +1659,15 @@ public sealed class ServerAutoStartService(IServiceScopeFactory scopeFactory, IL
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<PanelDbContext>();
         var docker = scope.ServiceProvider.GetRequiredService<DockerEngine>();
