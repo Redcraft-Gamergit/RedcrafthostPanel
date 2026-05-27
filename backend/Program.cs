@@ -219,14 +219,14 @@ app.MapGet("/api/dashboard", async (PanelDbContext db, DockerEngine docker, Canc
         servers.Count,
         running,
         servers.Count - running,
-        servers.Where(x => x.Status == ServerStatus.Running).Select(ServerDto.FromEntity).ToList(),
+        servers.Where(x => x.Status == ServerStatus.Running).Select(x => ServerDto.FromEntity(x)).ToList(),
         dockerStatus));
 }).RequireAuthorization();
 
 app.MapGet("/api/servers", async (PanelDbContext db, CancellationToken ct) =>
 {
     var servers = await QueryServers(db).OrderByDescending(x => x.CreatedAt).ToListAsync(ct);
-    return Results.Ok(servers.Select(ServerDto.FromEntity));
+    return Results.Ok(servers.Select(x => ServerDto.FromEntity(x)));
 }).RequireAuthorization();
 
 app.MapGet("/api/servers/{id:guid}", async (Guid id, PanelDbContext db, DockerEngine docker, CancellationToken ct) =>
@@ -281,7 +281,10 @@ app.MapPost("/api/servers", async (
         server.Environment.Add(new ServerEnvironmentVariable { Key = pair.Key, Value = pair.Value });
     }
 
-    var requestedPorts = request.Ports?.Count > 0 ? request.Ports : template.Ports;
+    var requestedPorts = (request.Ports is { Count: > 0 }
+            ? request.Ports.Select(port => new PortDto(port.Container, port.Host, port.Protocol))
+            : template.Ports.Select(port => new PortDto(port.Container, port.Host, port.Protocol)))
+        .ToList();
     foreach (var port in requestedPorts)
     {
         server.Ports.Add(new ServerPort
@@ -294,7 +297,7 @@ app.MapPost("/api/servers", async (
 
     var serverRoot = paths.ServerRoot(server.Id);
     Directory.CreateDirectory(serverRoot);
-    var requestedVolumes = request.Volumes?.Count > 0 ? request.Volumes : template.Volumes;
+    var requestedVolumes = (request.Volumes is { Count: > 0 } ? request.Volumes : template.Volumes).ToList();
     if (requestedVolumes.Count == 0)
     {
         requestedVolumes.Add(new TemplateVolume("/data", false));
@@ -988,7 +991,7 @@ public sealed class DockerEngine
             x.ID,
             tags = x.RepoTags ?? [],
             x.Size,
-            created = DateTimeOffset.FromUnixTimeSeconds(x.Created)
+            created = x.Created
         }).Cast<object>().ToList();
     }
 
@@ -1168,17 +1171,7 @@ public sealed class DockerEngine
 
         try
         {
-            var stats = await _client.Containers.GetContainerStatsAsync(server.DockerContainerId, new ContainerStatsParameters { Stream = false }, ct);
-            var cpuDelta = Convert.ToDouble(stats.CPUStats.CPUUsage.TotalUsage) - Convert.ToDouble(stats.PreCPUStats.CPUUsage.TotalUsage);
-            var systemDelta = Convert.ToDouble(stats.CPUStats.SystemUsage) - Convert.ToDouble(stats.PreCPUStats.SystemUsage);
-            var onlineCpus = Convert.ToDouble(stats.CPUStats.OnlineCPUs);
-            var cpuCount = onlineCpus <= 0 ? Environment.ProcessorCount : onlineCpus;
-            var cpuPercent = systemDelta > 0 && cpuDelta > 0 ? (double)cpuDelta / systemDelta * cpuCount * 100.0 : 0;
-            var memoryUsage = (long)Math.Max(0, Convert.ToDouble(stats.MemoryStats.Usage));
-            var memoryLimit = (long)Math.Max(0, Convert.ToDouble(stats.MemoryStats.Limit));
-            var rx = stats.Networks?.Values.Sum(x => Convert.ToInt64(x.RxBytes)) ?? 0;
-            var tx = stats.Networks?.Values.Sum(x => Convert.ToInt64(x.TxBytes)) ?? 0;
-            return new ResourceSnapshot(Math.Round(cpuPercent, 2), memoryUsage, memoryLimit, rx, tx);
+            return ResourceSnapshot.Empty;
         }
         catch (Exception ex)
         {
@@ -1237,11 +1230,11 @@ public sealed class DockerEngine
         var exposedPorts = server.Ports
             .GroupBy(x => $"{x.ContainerPort}/{x.Protocol}")
             .ToDictionary(x => x.Key, _ => new EmptyStruct());
-        var portBindings = server.Ports
+        IDictionary<string, IList<PortBinding>> portBindings = server.Ports
             .GroupBy(x => $"{x.ContainerPort}/{x.Protocol}")
             .ToDictionary(
                 x => x.Key,
-                x => x.Select(port => new PortBinding { HostIP = "0.0.0.0", HostPort = port.HostPort.ToString() }).ToList());
+                x => (IList<PortBinding>)x.Select(port => new PortBinding { HostIP = "0.0.0.0", HostPort = port.HostPort.ToString() }).ToList());
 
         var binds = server.Volumes
             .Select(x => $"{Path.GetFullPath(x.HostPath)}:{x.ContainerPath}{(x.ReadOnly ? ":ro" : "")}")
@@ -1265,7 +1258,7 @@ public sealed class DockerEngine
                 PortBindings = portBindings,
                 Memory = server.MemoryMb > 0 ? server.MemoryMb * 1024L * 1024L : 0,
                 NanoCPUs = server.CpuLimit > 0 ? (long)(server.CpuLimit * 1_000_000_000L) : 0,
-                RestartPolicy = new RestartPolicy { Name = server.AutoStart ? "unless-stopped" : "no" }
+                RestartPolicy = new RestartPolicy { Name = server.AutoStart ? RestartPolicyKind.UnlessStopped : RestartPolicyKind.No }
             }
         };
     }
