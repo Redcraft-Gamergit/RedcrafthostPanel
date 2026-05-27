@@ -508,6 +508,18 @@ app.MapGet("/api/servers/{id:guid}/logs/stream", async (Guid id, HttpContext con
     await docker.StreamLogsAsync(server, socket, ct);
 }).RequireAuthorization();
 
+app.MapPost("/api/servers/{id:guid}/console/command", async (Guid id, ConsoleCommandRequest request, PanelDbContext db, DockerEngine docker, CancellationToken ct) =>
+{
+    var server = await FindServerAsync(db, id, ct);
+    if (server is null)
+    {
+        return Results.NotFound();
+    }
+
+    var output = await docker.ExecuteConsoleCommandAsync(server, request.Command, ct);
+    return Results.Ok(new ConsoleCommandResponse(output));
+}).RequireAuthorization();
+
 app.MapGet("/api/servers/{id:guid}/files", async (Guid id, string? path, PanelDbContext db, FileManagerService files, CancellationToken ct) =>
 {
     var server = await FindServerAsync(db, id, ct);
@@ -1258,6 +1270,47 @@ public sealed class DockerEngine
     private static Task SendTextAsync(WebSocket socket, string text, CancellationToken ct)
     {
         return socket.SendAsync(Encoding.UTF8.GetBytes(text), WebSocketMessageType.Text, true, ct);
+    }
+
+    public async Task<string> ExecuteConsoleCommandAsync(GameServer server, string command, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new InvalidOperationException("Befehl darf nicht leer sein.");
+        }
+
+        if (string.IsNullOrWhiteSpace(server.DockerContainerId))
+        {
+            throw new InvalidOperationException("Container ist noch nicht erstellt.");
+        }
+
+        var exec = await _client.Exec.ExecCreateContainerAsync(server.DockerContainerId, new ContainerExecCreateParameters
+        {
+            AttachStdout = true,
+            AttachStderr = true,
+            AttachStdin = false,
+            Tty = false,
+            Cmd = new[] { "/bin/sh", "-lc", command.Trim() }
+        }, ct);
+
+        using var stream = await _client.Exec.StartAndAttachContainerExecAsync(exec.ID, false, ct);
+        using var stdout = new MemoryStream();
+        var buffer = new byte[8192];
+        while (true)
+        {
+            var result = await stream.ReadOutputAsync(buffer, 0, buffer.Length, ct);
+            if (result.EOF)
+            {
+                break;
+            }
+
+            if (result.Count > 0)
+            {
+                stdout.Write(buffer, 0, result.Count);
+            }
+        }
+
+        return Encoding.UTF8.GetString(stdout.ToArray());
     }
 
     private static CreateContainerParameters BuildCreateParameters(GameServer server)
@@ -2041,6 +2094,8 @@ public sealed record FileContentDto(string Path, string Content, DateTime Modifi
 public sealed record FileWriteRequest(string Content);
 public sealed record FilePathRequest(string Path);
 public sealed record FileMoveRequest(string SourcePath, string TargetPath);
+public sealed record ConsoleCommandRequest(string Command);
+public sealed record ConsoleCommandResponse(string Output);
 public sealed record ImagePullRequest(string Image);
 public sealed record CreateUserRequest(string Username, string Password, string Role);
 public sealed record CreateApiKeyRequest(string Name, DateTimeOffset? ExpiresAt);

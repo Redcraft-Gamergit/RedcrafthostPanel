@@ -91,6 +91,10 @@ export class ApiClient {
     return this.request<Server>(`/api/servers/${id}/${action}`, { method: "POST" });
   }
 
+  consoleCommand(id: string, command: string) {
+    return this.request<{ output: string }>(`/api/servers/${id}/console/command`, { method: "POST", body: { command } });
+  }
+
   deleteServer(id: string, deleteFiles: boolean) {
     return this.request<void>(`/api/servers/${id}?deleteFiles=${deleteFiles ? "true" : "false"}`, { method: "DELETE" });
   }

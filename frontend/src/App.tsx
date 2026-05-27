@@ -21,6 +21,7 @@ import {
   Pencil,
   RefreshCw,
   Save,
+  Send,
   Server as ServerIcon,
   Settings,
   Shield,
@@ -551,6 +552,8 @@ function ServerDetailView({ api, id, setView }: { api: ApiClient; id: string; se
 function ConsolePanel({ api, server }: { api: ApiClient; server: Server }) {
   const [lines, setLines] = useState<string[]>([]);
   const [connected, setConnected] = useState(false);
+  const [command, setCommand] = useState("");
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -569,6 +572,28 @@ function ConsolePanel({ api, server }: { api: ApiClient; server: Server }) {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [lines]);
 
+  async function sendCommand(event: FormEvent) {
+    event.preventDefault();
+    const next = command.trim();
+    if (!next || sending) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      setLines((prev) => [...prev, `\n> ${next}\n`]);
+      const result = await api.consoleCommand(server.id, next);
+      if (result.output) {
+        setLines((prev) => [...prev, result.output.endsWith("\n") ? result.output : `${result.output}\n`]);
+      }
+      setCommand("");
+    } catch (err) {
+      setLines((prev) => [...prev, `Fehler: ${messageOf(err)}\n`]);
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -582,6 +607,18 @@ function ConsolePanel({ api, server }: { api: ApiClient; server: Server }) {
         {lines.length === 0 ? "Warte auf Logs...\n" : lines.join("")}
         <div ref={bottomRef} />
       </pre>
+      <form className="mt-3 flex gap-2" onSubmit={sendCommand}>
+        <input
+          className={clsx(inputClass, "font-mono text-sm")}
+          value={command}
+          onChange={(event) => setCommand(event.target.value)}
+          placeholder="Befehl eingeben, z.B. ls -la /data"
+        />
+        <Button type="submit" disabled={sending || !command.trim()}>
+          <Send size={15} />
+          Senden
+        </Button>
+      </form>
     </div>
   );
 }
