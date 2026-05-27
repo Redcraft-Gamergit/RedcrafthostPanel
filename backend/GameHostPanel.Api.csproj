@@ -20,6 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="templates\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="templates\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
