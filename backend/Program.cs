@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.IO.Compression;
 using System.Net;
 using System.Net.WebSockets;
 using System.Runtime.InteropServices;
@@ -116,6 +117,7 @@ builder.Services.AddSingleton<DockerEngine>();
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<FileManagerService>();
 builder.Services.AddHostedService<ServerAutoStartService>();
+builder.Services.AddHostedService<DailyBackupService>();
 
 var app = builder.Build();
 
@@ -1611,6 +1613,135 @@ public sealed class ServerAutoStartService(IServiceScopeFactory scopeFactory, IL
             {
                 logger.LogWarning(ex, "Autostart fehlgeschlagen: {Server}", server.Name);
             }
+        }
+    }
+}
+
+public sealed class DailyBackupService(
+    IConfiguration configuration,
+    IWebHostEnvironment environment,
+    PanelPaths paths,
+    ILogger<DailyBackupService> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var enabled = configuration.GetValue("Panel:Backups:Enabled", true);
+        if (!enabled)
+        {
+            logger.LogInformation("Daily backups disabled.");
+            return;
+        }
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var now = DateTime.Now;
+            var hour = Math.Clamp(configuration.GetValue("Panel:Backups:Hour", 3), 0, 23);
+            var minute = Math.Clamp(configuration.GetValue("Panel:Backups:Minute", 15), 0, 59);
+            var nextRun = new DateTime(now.Year, now.Month, now.Day, hour, minute, 0, now.Kind);
+            if (nextRun <= now)
+            {
+                nextRun = nextRun.AddDays(1);
+            }
+
+            var delay = nextRun - now;
+            logger.LogInformation("Next backup scheduled at {Time}", nextRun);
+
+            try
+            {
+                await Task.Delay(delay, stoppingToken);
+            }
+            catch (TaskCanceledException)
+            {
+                break;
+            }
+
+            if (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            try
+            {
+                RunBackup();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Daily backup failed.");
+            }
+        }
+    }
+
+    private void RunBackup()
+    {
+        var outputDirConfigured = configuration["Panel:Backups:OutputDirectory"];
+        var outputDir = string.IsNullOrWhiteSpace(outputDirConfigured)
+            ? Path.Combine(paths.DataRoot, "backups")
+            : Path.GetFullPath(Path.IsPathRooted(outputDirConfigured)
+                ? outputDirConfigured
+                : Path.Combine(environment.ContentRootPath, outputDirConfigured));
+        Directory.CreateDirectory(outputDir);
+
+        var keep = Math.Max(2, configuration.GetValue("Panel:Backups:MaxFiles", 2));
+        var stamp = DateTime.Now.ToString("yyyy-MM-dd");
+        var zipPath = Path.Combine(outputDir, $"gamehostpanel-backup-{stamp}.zip");
+        var tempDir = Path.Combine(Path.GetTempPath(), $"ghp-backup-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var dataSource = paths.DataRoot;
+            if (Directory.Exists(dataSource))
+            {
+                CopyDirectory(dataSource, Path.Combine(tempDir, "data"));
+            }
+
+            var configPath = Path.Combine(environment.ContentRootPath, "config.json");
+            if (File.Exists(configPath))
+            {
+                var configTargetDir = Path.Combine(tempDir, "backend");
+                Directory.CreateDirectory(configTargetDir);
+                File.Copy(configPath, Path.Combine(configTargetDir, "config.json"), overwrite: true);
+            }
+
+            if (File.Exists(zipPath))
+            {
+                File.Delete(zipPath);
+            }
+
+            ZipFile.CreateFromDirectory(tempDir, zipPath, CompressionLevel.Optimal, includeBaseDirectory: false);
+            logger.LogInformation("Backup written: {File}", zipPath);
+
+            var oldBackups = Directory.GetFiles(outputDir, "gamehostpanel-backup-*.zip")
+                .OrderByDescending(File.GetCreationTimeUtc)
+                .Skip(keep)
+                .ToList();
+            foreach (var old in oldBackups)
+            {
+                File.Delete(old);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    private static void CopyDirectory(string sourceDir, string destinationDir)
+    {
+        Directory.CreateDirectory(destinationDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var target = Path.Combine(destinationDir, Path.GetFileName(file));
+            File.Copy(file, target, overwrite: true);
+        }
+
+        foreach (var subDir in Directory.GetDirectories(sourceDir))
+        {
+            var targetSub = Path.Combine(destinationDir, Path.GetFileName(subDir));
+            CopyDirectory(subDir, targetSub);
         }
     }
 }

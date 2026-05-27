@@ -6,7 +6,14 @@
     "JwtSecret": "CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_SECRET_BEFORE_PUBLIC_USE",
     "TokenHours": 12,
     "DatabaseProvider": "sqlite",
-    "AutoCreateContainers": true
+    "AutoCreateContainers": true,
+    "Backups": {
+      "Enabled": true,
+      "Hour": 3,
+      "Minute": 15,
+      "MaxFiles": 2,
+      "OutputDirectory": ""
+    }
   },
   "ConnectionStrings": {
     "SQLite": "Data Source=data/panel.db",
