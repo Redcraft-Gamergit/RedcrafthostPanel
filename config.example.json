@@ -1,0 +1,15 @@
+{
+  "Panel": {
+    "HttpPort": 8080,
+    "DataRoot": "data",
+    "DockerEndpoint": "",
+    "JwtSecret": "CHANGE_THIS_TO_A_RANDOM_64_CHARACTER_SECRET_BEFORE_PUBLIC_USE",
+    "TokenHours": 12,
+    "DatabaseProvider": "sqlite",
+    "AutoCreateContainers": true
+  },
+  "ConnectionStrings": {
+    "SQLite": "Data Source=data/panel.db",
+    "PostgreSQL": "Host=localhost;Port=5432;Database=gamehostpanel;Username=gamehost;Password=change-me"
+  }
+}

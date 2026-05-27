@@ -1,0 +1,255 @@
+[
+  {
+    "id": "minecraft_vanilla",
+    "name": "Minecraft Vanilla",
+    "category": "Minecraft",
+    "image": "itzg/minecraft-server:java21",
+    "description": "Offizieller Vanilla-Minecraft-Server mit EULA-Setup.",
+    "startCommand": "",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "VANILLA",
+      "VERSION": "LATEST",
+      "MEMORY": "2G"
+    },
+    "ports": [
+      { "container": 25565, "host": 25565, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/data", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 2048
+  },
+  {
+    "id": "minecraft_paper",
+    "name": "Minecraft Paper",
+    "category": "Minecraft",
+    "image": "itzg/minecraft-server:java21",
+    "description": "Paper für performante Plugin-Server.",
+    "startCommand": "",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "PAPER",
+      "VERSION": "LATEST",
+      "MEMORY": "4G"
+    },
+    "ports": [
+      { "container": 25565, "host": 25565, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/data", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 4096
+  },
+  {
+    "id": "minecraft_purpur",
+    "name": "Minecraft Purpur",
+    "category": "Minecraft",
+    "image": "itzg/minecraft-server:java21",
+    "description": "Purpur/Paper-Fork für mehr Server-Optionen.",
+    "startCommand": "",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "PURPUR",
+      "VERSION": "LATEST",
+      "MEMORY": "4G"
+    },
+    "ports": [
+      { "container": 25565, "host": 25565, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/data", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 4096
+  },
+  {
+    "id": "minecraft_forge",
+    "name": "Minecraft Forge",
+    "category": "Minecraft",
+    "image": "itzg/minecraft-server:java21",
+    "description": "Forge-Modloader mit persistentem /data-Volume.",
+    "startCommand": "",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "FORGE",
+      "VERSION": "1.20.1",
+      "MEMORY": "4G"
+    },
+    "ports": [
+      { "container": 25565, "host": 25565, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/data", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 4096
+  },
+  {
+    "id": "minecraft_neoforge",
+    "name": "Minecraft NeoForge",
+    "category": "Minecraft",
+    "image": "itzg/minecraft-server:java21",
+    "description": "NeoForge-Modloader für moderne Modpacks.",
+    "startCommand": "",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "NEOFORGE",
+      "VERSION": "1.21.1",
+      "MEMORY": "4G"
+    },
+    "ports": [
+      { "container": 25565, "host": 25565, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/data", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 4096
+  },
+  {
+    "id": "minecraft_fabric",
+    "name": "Minecraft Fabric",
+    "category": "Minecraft",
+    "image": "itzg/minecraft-server:java21",
+    "description": "Fabric-Server für Fabric-Modpacks.",
+    "startCommand": "",
+    "env": {
+      "EULA": "TRUE",
+      "TYPE": "FABRIC",
+      "VERSION": "LATEST",
+      "MEMORY": "4G"
+    },
+    "ports": [
+      { "container": 25565, "host": 25565, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/data", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 4096
+  },
+  {
+    "id": "csgo",
+    "name": "Counter-Strike: Global Offensive",
+    "category": "Source",
+    "image": "cm2network/csgo:latest",
+    "description": "CS:GO Dedicated Server. SRCDS_TOKEN muss gesetzt werden.",
+    "startCommand": "",
+    "env": {
+      "SRCDS_TOKEN": "CHANGEME",
+      "SRCDS_PORT": "27015",
+      "SRCDS_TV_PORT": "27020",
+      "SRCDS_MAXPLAYERS": "16",
+      "SRCDS_STARTMAP": "de_dust2"
+    },
+    "ports": [
+      { "container": 27015, "host": 27015, "protocol": "udp" },
+      { "container": 27020, "host": 27020, "protocol": "udp" }
+    ],
+    "volumes": [
+      { "containerPath": "/home/steam/csgo-dedicated", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 2048
+  },
+  {
+    "id": "rust",
+    "name": "Rust",
+    "category": "Survival",
+    "image": "didstopia/rust-server:latest",
+    "description": "Rust Dedicated Server mit Standard-Ports.",
+    "startCommand": "",
+    "env": {
+      "RUST_SERVER_NAME": "GameHostPanel Rust",
+      "RUST_SERVER_MAXPLAYERS": "50",
+      "RUST_SERVER_WORLD_SIZE": "3500"
+    },
+    "ports": [
+      { "container": 28015, "host": 28015, "protocol": "udp" },
+      { "container": 28016, "host": 28016, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/steamcmd/rust", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 6144
+  },
+  {
+    "id": "ark",
+    "name": "ARK Survival Evolved",
+    "category": "Survival",
+    "image": "hermsi/ark-server:latest",
+    "description": "ARK Server mit Game-, Query- und RCON-Port.",
+    "startCommand": "",
+    "env": {
+      "SESSION_NAME": "GameHostPanel ARK",
+      "SERVER_MAP": "TheIsland",
+      "MAX_PLAYERS": "20"
+    },
+    "ports": [
+      { "container": 7777, "host": 7777, "protocol": "udp" },
+      { "container": 27015, "host": 27015, "protocol": "udp" },
+      { "container": 27020, "host": 27020, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/app", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 8192
+  },
+  {
+    "id": "valheim",
+    "name": "Valheim",
+    "category": "Survival",
+    "image": "lloesche/valheim-server:latest",
+    "description": "Valheim Dedicated Server.",
+    "startCommand": "",
+    "env": {
+      "SERVER_NAME": "GameHostPanel Valheim",
+      "WORLD_NAME": "Dedicated",
+      "SERVER_PASS": "change-me"
+    },
+    "ports": [
+      { "container": 2456, "host": 2456, "protocol": "udp" },
+      { "container": 2457, "host": 2457, "protocol": "udp" },
+      { "container": 2458, "host": 2458, "protocol": "udp" }
+    ],
+    "volumes": [
+      { "containerPath": "/config", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 3072
+  },
+  {
+    "id": "terraria",
+    "name": "Terraria",
+    "category": "Sandbox",
+    "image": "ryshe/terraria:latest",
+    "description": "Terraria Dedicated Server.",
+    "startCommand": "",
+    "env": {
+      "WORLD_FILENAME": "world.wld",
+      "CONFIGPATH": "/root/.local/share/Terraria/Worlds"
+    },
+    "ports": [
+      { "container": 7777, "host": 7777, "protocol": "tcp" }
+    ],
+    "volumes": [
+      { "containerPath": "/root/.local/share/Terraria/Worlds", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 1024
+  },
+  {
+    "id": "fivem",
+    "name": "FiveM",
+    "category": "GTA",
+    "image": "spritsail/fivem:latest",
+    "description": "FiveM Server. Lizenz-Key in Env setzen.",
+    "startCommand": "",
+    "env": {
+      "LICENSE_KEY": "CHANGEME",
+      "SERVER_HOSTNAME": "GameHostPanel FiveM"
+    },
+    "ports": [
+      { "container": 30120, "host": 30120, "protocol": "tcp" },
+      { "container": 30120, "host": 30120, "protocol": "udp" }
+    ],
+    "volumes": [
+      { "containerPath": "/config", "readOnly": false }
+    ],
+    "recommendedMemoryMb": 4096
+  }
+]
