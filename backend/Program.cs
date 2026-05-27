@@ -448,7 +448,7 @@ app.MapPost("/api/servers/{id:guid}/kill", async (Guid id, PanelDbContext db, Do
     return Results.Ok(ServerDto.FromEntity(server));
 }).RequireAuthorization();
 
-app.MapDelete("/api/servers/{id:guid}", async (Guid id, DeleteServerRequest? request, PanelDbContext db, DockerEngine docker, FileManagerService files, CancellationToken ct) =>
+app.MapDelete("/api/servers/{id:guid}", async (Guid id, bool? deleteFiles, PanelDbContext db, DockerEngine docker, FileManagerService files, CancellationToken ct) =>
 {
     var server = await FindServerAsync(db, id, ct);
     if (server is null)
@@ -457,7 +457,7 @@ app.MapDelete("/api/servers/{id:guid}", async (Guid id, DeleteServerRequest? req
     }
 
     await docker.DeleteContainerAsync(server, ct);
-    if (request?.DeleteFiles == true)
+    if (deleteFiles == true)
     {
         files.DeleteServerRoot(server);
     }
@@ -1766,7 +1766,6 @@ public sealed record UpdateServerRequest(
     bool? AutoStart,
     bool RecreateContainer);
 
-public sealed record DeleteServerRequest(bool DeleteFiles);
 public sealed record FileEntryDto(string Name, string Path, bool IsDirectory, long Size, DateTime? ModifiedAt);
 public sealed record FileContentDto(string Path, string Content, DateTime ModifiedAt);
 public sealed record FileWriteRequest(string Content);

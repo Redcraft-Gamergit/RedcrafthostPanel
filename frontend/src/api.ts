@@ -92,7 +92,7 @@ export class ApiClient {
   }
 
   deleteServer(id: string, deleteFiles: boolean) {
-    return this.request<void>(`/api/servers/${id}`, { method: "DELETE", body: { deleteFiles } });
+    return this.request<void>(`/api/servers/${id}?deleteFiles=${deleteFiles ? "true" : "false"}`, { method: "DELETE" });
   }
 
   stats(id: string) {
