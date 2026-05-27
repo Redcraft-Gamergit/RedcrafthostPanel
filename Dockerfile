@@ -15,6 +15,7 @@ RUN dotnet publish backend/GameHostPanel.Api.csproj -c Release -o /out --no-rest
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
 WORKDIR /app/backend
+RUN apk add --no-cache icu-libs
 COPY --from=backend /out ./
 COPY --from=frontend /src/frontend/dist ../frontend/dist
 EXPOSE 8080
