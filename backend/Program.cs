@@ -141,6 +141,11 @@ app.Use(async (context, next) =>
         context.Response.StatusCode = (int)ex.StatusCode;
         await context.Response.WriteAsJsonAsync(new { message = ex.ResponseBody ?? ex.Message });
     }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new { message = ex.Message });
+    }
 });
 app.UseWebSockets(new WebSocketOptions
 {
@@ -1717,7 +1722,9 @@ public sealed record ServerDto(
             server.CreatedAt,
             server.UpdatedAt,
             server.Ports.Select(x => new PortDto(x.ContainerPort, x.HostPort, x.Protocol)).ToList(),
-            server.Environment.ToDictionary(x => x.Key, x => x.Value),
+            server.Environment
+                .GroupBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.OrdinalIgnoreCase),
             server.Volumes.Select(x => new VolumeDto(x.HostPath, x.ContainerPath, x.ReadOnly)).ToList(),
             stats);
     }
